@@ -1,0 +1,1377 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>🏔️山河之旅</title>
+    <style>
+      :root {
+        --bg: #1a1a2e;
+        --gold: #e2b04a;
+        --text: #f0e6d3;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #1a1a2e 100%);
+        display: flex; justify-content: center; align-items: center;
+        min-height: 100vh; font-family: "Segoe UI", "PingFang SC", sans-serif;
+        user-select: none; overflow: hidden;
+        touch-action: manipulation;
+      }
+      .game-container {
+        position: relative; display: flex; gap: 12px; align-items: stretch;
+        background: rgba(22,33,62,0.7); border-radius: 24px; padding: 16px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 2px rgba(226,176,74,0.3);
+        backdrop-filter: blur(10px); min-width: 1060px; width: fit-content; margin: 0 auto;
+        transform-origin: center center; transition: transform 0.3s ease;
+      }
+      .board-wrapper {
+        position: relative; width: 800px; height: 600px; border-radius: 16px;
+        overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.4), 0 0 0 3px rgba(226,176,74,0.25);
+        background: radial-gradient(circle at center, #fef9f0, #f5ecd7, #e8d5b0);
+      }
+      canvas#bgCanvas { position: absolute; top:0; left:0; width:800px; height:600px; }
+      canvas#gameCanvas { position: absolute; top:0; left:0; width:800px; height:600px; z-index:2; cursor:pointer; }
+      .dice-3d-container { perspective:350px; width:40px; height:40px; position:absolute; z-index:5; display:none; cursor:pointer; }
+      .dice-3d { position:relative; width:100%; height:100%; transform-style:preserve-3d; transition: transform 2s cubic-bezier(0.25,0.1,0.25,1); }
+      .dice-face { position:absolute; width:42px; height:42px; background:#fff; border:2px solid #333; border-radius:8px; display:flex; justify-content:center; align-items:center; }
+      .row { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+      .dot { width:6px; height:6px; background:#333; border-radius:50%; margin:1.8px; }
+      .dot.red { background:red; }
+      .hide-dot { visibility:hidden; }
+      .front { transform:translateZ(20px); }
+      .back { transform:rotateY(180deg) translateZ(20px); }
+      .top { transform:rotateX(90deg) translateZ(20px); }
+      .bottom { transform:rotateX(-90deg) translateZ(20px); }
+      .left { transform:rotateY(-90deg) translateZ(20px); }
+      .right { transform:rotateY(90deg) translateZ(20px); }
+      .side-panel { flex:0 0 260px; display:flex; flex-direction:column; gap:8px; min-width:240px; }
+      .panel-card { background:rgba(30,40,65,0.85); border-radius:10px; padding:8px 10px; border:1px solid rgba(226,176,74,0.35); }
+      .panel-card h3 { color:#e2b04a; font-size:0.8em; margin-bottom:6px; text-align:center; font-weight:600; }
+      .player-indicator { display:flex; align-items:center; gap:8px; padding:4px 8px; border-radius:8px; font-weight:600; font-size:0.8em; color:#ccc; transition:0.4s; flex-wrap:wrap; }
+      .player-indicator.active { background:rgba(226,176,74,0.2); border:2px solid #e2b04a; color:#fff; box-shadow:0 0 12px rgba(226,176,74,0.3); animation:pulse 2s infinite; }
+      @keyframes pulse { 0%,100%{ box-shadow:0 0 12px rgba(226,176,74,0.3); } 50%{ box-shadow:0 0 24px rgba(226,176,74,0.6); } }
+      /* .status-text 已删除 */
+      .action-btn { background:linear-gradient(135deg,#e2b04a,#c9973a); color:#1a1a2e; border:none; border-radius:20px; padding:6px 12px; font-size:0.8em; font-weight:700; cursor:pointer; letter-spacing:1px; transition:0.25s; text-transform:uppercase; width:100%; }
+      .action-btn:hover { background:linear-gradient(135deg,#f0c860,#e2b04a); }
+      .action-btn.disabled { background:linear-gradient(135deg,#555,#444); color:#999; cursor:not-allowed; opacity:0.6; pointer-events:none; }
+      .key-hint { font-size:0.6em; opacity:0.7; margin-left:4px; }
+      .btn-reset { background:transparent; border:2px solid rgba(255,255,255,0.4); color:#ccc; font-size:0.75em; padding:6px 14px; margin-top:4px; cursor:pointer; letter-spacing:1px; transition:0.25s; text-transform:uppercase; font-family:inherit; border-radius:20px; width:100%; }
+      .btn-reset:hover { border-color:#fff; color:#fff; }
+      .modal-overlay {
+        position:fixed; top:0; left:0; width:100%; height:100%;
+        background: transparent; z-index:100; display:flex; justify-content:center; align-items:center;
+        backdrop-filter: none;
+      }
+      .modal-overlay.hidden { display:none; }
+      .modal-box {
+        background: rgba(255, 255, 255, 0.6);
+        border:2px solid #e2b04a;
+        border-radius:20px; padding:24px 28px; max-width:420px; width:90%;
+        box-shadow:0 20px 50px rgba(0,0,0,0.3);
+        color: #1a1a2e; text-align:center;
+      }
+      .modal-box h3 { color:#e2b04a; margin-bottom:16px; font-size:1.1em; }
+      .question-text { font-size:1em; margin-bottom:20px; line-height:1.4; }
+      .options-grid { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+      .option-btn {
+        background: rgba(0,0,0,0.05);
+        border:1px solid rgba(226,176,74,0.8);
+        color:#1a1a2e; padding:10px 16px; border-radius:10px;
+        cursor:pointer; font-size:0.9em; transition:0.2s; text-align:left;
+      }
+      .option-btn:hover { background: rgba(226,176,74,0.2); border-color:#e2b04a; }
+      .option-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+      .reward-grid { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:10px; }
+      .reward-card {
+        background: linear-gradient(145deg, #ffffff00, #f0f0f000);
+        border:2px solid #e2b04a; border-radius:16px; padding:16px 12px;
+        width:100px; cursor:pointer; transition:0.2s; font-weight:bold;
+        color:#1a1a2e; font-size:1em; text-align:center;
+      }
+      .reward-card:hover { background:#e2b04a; color:#fff; transform:scale(1.05); }
+    </style>
+  </head>
+  <body>
+    <div class="modal-overlay hidden" id="modalOverlay">
+      <div class="modal-box" id="modalBox"></div>
+    </div>
+    <div class="game-container" id="gameContainer">
+      <div class="dice-3d-container" id="diceContainer">
+        <div class="dice-3d" id="dice3d">
+          <div class="dice-face front" data-value="1"><div class="dot red"></div></div>
+          <div class="dice-face back" data-value="6"><div class="row"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="row"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+          <div class="dice-face top" data-value="5"><div class="row"><div class="dot"></div><div class="dot hide-dot"></div><div class="dot"></div></div><div class="row"><div class="dot"></div></div><div class="row"><div class="dot"></div><div class="dot hide-dot"></div><div class="dot"></div></div></div>
+          <div class="dice-face bottom" data-value="2"><div class="row"><div class="dot"></div><div class="dot hide-dot"></div><div class="dot"></div></div></div>
+          <div class="dice-face left" data-value="4"><div class="row"><div class="dot hide-dot"></div></div><div class="row"><div class="dot red"></div><div class="dot hide-dot"></div><div class="dot red"></div></div><div class="row"><div class="dot hide-dot"></div></div><div class="row"><div class="dot red"></div><div class="dot hide-dot"></div><div class="dot red"></div></div><div class="row"><div class="dot hide-dot"></div></div></div>
+          <div class="dice-face right" data-value="3"><div class="row"><div class="dot hide-dot"></div><div class="dot hide-dot"></div><div class="dot"></div></div><div class="row"><div class="dot hide-dot"></div><div class="dot"></div><div class="dot hide-dot"></div></div><div class="row"><div class="dot"></div><div class="dot hide-dot"></div><div class="dot hide-dot"></div></div></div>
+        </div>
+      </div>
+      <div class="board-wrapper" id="boardWrapper">
+        <canvas id="bgCanvas"></canvas>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+      </div>
+      <div class="side-panel">
+        <div class="panel-card">
+          <h3>👥 旅行者</h3>
+          <div class="player-indicator active" id="p0Indicator"><span id="p0Name">你 🔴</span> <span id="p0Score">(0/0)</span> <span id="p0AP"></span></div>
+          <div class="player-indicator" id="p1Indicator"><span id="p1Name">电脑1 🔵</span> <span id="p1Score">(0/0)</span> <span id="p1AP"></span></div>
+          <div class="player-indicator" id="p2Indicator"><span id="p2Name">电脑2 🟢</span> <span id="p2Score">(0/0)</span> <span id="p2AP"></span></div>
+          <!-- 已移除 statusText 元素 -->
+        </div>
+        <button id="btnRollDice" class="action-btn">🎲 掷骰子 <span class="key-hint">[空格]</span></button>
+        <div style="font-size:0.7em;color:#aaa;text-align:center">完成所有城市打卡获胜</div>
+        <button class="btn-reset" id="btnReset">🔄 重新开始</button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        // ==================== 元素获取 ====================
+        const bgCanvas = document.getElementById("bgCanvas");
+        const bgCtx = bgCanvas.getContext("2d");
+        const gameCanvas = document.getElementById("gameCanvas");
+        const gameCtx = gameCanvas.getContext("2d");
+        const dice3d = document.getElementById("dice3d");
+        const diceContainer = document.getElementById("diceContainer");
+        const boardWrapper = document.getElementById("boardWrapper");
+        const gameContainer = document.getElementById("gameContainer");
+        const btnRollDice = document.getElementById("btnRollDice");
+        const btnReset = document.getElementById("btnReset");
+        // const statusText 已删除
+        const indicators = [0,1,2].map(i => document.getElementById(`p${i}Indicator`));
+        const scoreEls = [0,1,2].map(i => document.getElementById(`p${i}Score`));
+        const apEls = [0,1,2].map(i => document.getElementById(`p${i}AP`));
+        const modalOverlay = document.getElementById("modalOverlay");
+        const modalBox = document.getElementById("modalBox");
+
+        const backgroundImagePath = "/myweb/bg.png";
+        let bgLoaded = false;
+        function loadBackgroundImage() {
+          if (backgroundImagePath && backgroundImagePath.trim() !== "") {
+            const img = new Image();
+            img.onload = () => { bgCanvas.width = img.width; bgCanvas.height = img.height; bgCtx.drawImage(img,0,0); bgLoaded = true; };
+            img.onerror = () => { bgLoaded = false; };
+            img.src = backgroundImagePath;
+          }
+        }
+
+         // ==================== 地图数据 ====================
+        const nodes = [
+          { id:0, name:"小兴安岭", x:614.03, y:91.02, type:"city" },
+          { id:1, name:"", x:597.68, y:100.74, type:"road" },
+          { id:2, name:"", x:581.34, y:110.9, type:"road" },
+          { id:3, name:"", x:616.23, y:114.43, type:"road" },
+          { id:4, name:"阿尔泰山脉", x:238.54, y:115.76, type:"city" },
+          { id:5, name:"", x:565.43, y:120.62, type:"road" },
+          { id:6, name:"", x:220.43, y:127.25, type:"road" },
+          { id:7, name:"大兴安岭", x:549.09, y:130.34, type:"city" },
+          { id:8, name:"", x:247.82, y:135.2, type:"road" },
+          { id:9, name:"", x:618.88, y:137.85, type:"road" },
+          { id:10, name:"", x:202.32, y:138.73, type:"road" },
+          { id:11, name:"", x:567.64, y:144.04, type:"road" },
+          { id:12, name:"", x:184.65, y:149.78, type:"road" },
+          { id:13, name:"", x:546, y:153.76, type:"road" },
+          { id:14, name:"", x:257.54, y:154.2, type:"road" },
+          { id:15, name:"", x:586.2, y:157.29, type:"road" },
+          { id:16, name:"", x:166.54, y:161.27, type:"road" },
+          { id:17, name:"", x:621.09, y:161.27, type:"road" },
+          { id:18, name:"", x:604.75, y:170.99, type:"road" },
+          { id:19, name:"天山山脉(西)", x:148.43, y:172.31, type:"city" },
+          { id:20, name:"", x:266.81, y:173.2, type:"road" },
+          { id:21, name:"", x:169.63, y:175.85, type:"road" },
+          { id:22, name:"", x:542.46, y:177.17, type:"road" },
+          { id:23, name:"", x:190.83, y:178.94, type:"road" },
+          { id:24, name:"", x:212.48, y:182.47, type:"road" },
+          { id:25, name:"长白山脉", x:623.74, y:184.68, type:"city" },
+          { id:26, name:"", x:233.68, y:185.57, type:"road" },
+          { id:27, name:"", x:135.62, y:187.78, type:"road" },
+          { id:28, name:"", x:160.8, y:188.66, type:"road" },
+          { id:29, name:"", x:254.89, y:189.1, type:"road" },
+          { id:30, name:"天山山脉(东)", x:276.09, y:192.64, type:"city" },
+          { id:31, name:"", x:606.07, y:192.64, type:"road" },
+          { id:32, name:"", x:297.29, y:197.05, type:"road" },
+          { id:33, name:"", x:588.4, y:200.15, type:"road" },
+          { id:34, name:"", x:539.37, y:200.59, type:"road" },
+          { id:35, name:"", x:318.5, y:201.91, type:"road" },
+          { id:36, name:"", x:123.25, y:202.8, type:"road" },
+          { id:37, name:"", x:173.61, y:204.57, type:"road" },
+          { id:38, name:"", x:339.7, y:206.33, type:"road" },
+          { id:39, name:"", x:259.75, y:207.66, type:"road" },
+          { id:40, name:"", x:571.18, y:208.1, type:"road" },
+          { id:41, name:"", x:288.02, y:210.31, type:"road" },
+          { id:42, name:"", x:360.91, y:211.19, type:"road" },
+          { id:43, name:"", x:382.11, y:215.61, type:"road" },
+          { id:44, name:"", x:553.51, y:216.05, type:"road" },
+          { id:45, name:"", x:110.44, y:217.82, type:"road" },
+          { id:46, name:"", x:403.31, y:220.47, type:"road" },
+          { id:47, name:"", x:185.97, y:220.91, type:"road" },
+          { id:48, name:"", x:243.84, y:222.68, type:"road" },
+          { id:49, name:"燕山", x:536.28, y:224.01, type:"city" },
+          { id:50, name:"", x:424.52, y:224.89, type:"road" },
+          { id:51, name:"", x:513.31, y:225.33, type:"road" },
+          { id:52, name:"", x:490.78, y:227.1, type:"road" },
+          { id:53, name:"", x:299.94, y:228.42, type:"road" },
+          { id:54, name:"", x:468.25, y:228.42, type:"road" },
+          { id:55, name:"阴山山脉", x:445.28, y:229.75, type:"city" },
+          { id:56, name:"", x:98.07, y:233.28, type:"road" },
+          { id:57, name:"", x:425.4, y:235.49, type:"road" },
+          { id:58, name:"", x:198.34, y:237.26, type:"road" },
+          { id:59, name:"", x:227.5, y:238.14, type:"road" },
+          { id:60, name:"", x:405.08, y:241.24, type:"road" },
+          { id:61, name:"", x:523.03, y:241.68, type:"road" },
+          { id:62, name:"", x:462.51, y:245.21, type:"road" },
+          { id:63, name:"", x:312.31, y:246.54, type:"road" },
+          { id:64, name:"", x:384.76, y:246.98, type:"road" },
+          { id:65, name:"", x:85.26, y:248.31, type:"road" },
+          { id:66, name:"", x:430.26, y:248.31, type:"road" },
+          { id:67, name:"", x:364.44, y:252.72, type:"road" },
+          { id:68, name:"阿尔金山脉", x:211.15, y:253.17, type:"city" },
+          { id:69, name:"", x:191.28, y:254.93, type:"road" },
+          { id:70, name:"", x:233.68, y:255.38, type:"road" },
+          { id:71, name:"", x:171.4, y:256.26, type:"road" },
+          { id:72, name:"", x:151.96, y:257.58, type:"road" },
+          { id:73, name:"", x:256.21, y:257.58, type:"road" },
+          { id:74, name:"", x:344.12, y:258.47, type:"road" },
+          { id:75, name:"", x:132.08, y:259.35, type:"road" },
+          { id:76, name:"", x:509.33, y:259.35, type:"road" },
+          { id:77, name:"", x:278.74, y:259.79, type:"road" },
+          { id:78, name:"", x:112.2, y:260.68, type:"road" },
+          { id:79, name:"", x:479.29, y:261.12, type:"road" },
+          { id:80, name:"", x:92.77, y:262, type:"road" },
+          { id:81, name:"", x:301.27, y:262, type:"road" },
+          { id:82, name:"昆仑山脉", x:72.89, y:263.77, type:"city" },
+          { id:83, name:"祁连山脉", x:324.24, y:264.21, type:"city" },
+          { id:84, name:"", x:414.8, y:267.3, type:"road" },
+          { id:85, name:"", x:340.14, y:276.58, type:"road" },
+          { id:86, name:"太行山脉", x:496.08, y:277.03, type:"city" },
+          { id:87, name:"", x:211.15, y:277.47, type:"road" },
+          { id:88, name:"", x:476.64, y:278.79, type:"road" },
+          { id:89, name:"", x:457.21, y:280.56, type:"road" },
+          { id:90, name:"", x:83.05, y:281.44, type:"road" },
+          { id:91, name:"", x:437.77, y:282.33, type:"road" },
+          { id:92, name:"", x:418.77, y:284.09, type:"road" },
+          { id:93, name:"", x:314.08, y:285.42, type:"road" },
+          { id:94, name:"贺兰山与六盘山", x:399.34, y:285.86, type:"city" },
+          { id:95, name:"", x:356.05, y:288.95, type:"road" },
+          { id:96, name:"", x:481.06, y:295.14, type:"road" },
+          { id:97, name:"", x:502.71, y:296.02, type:"road" },
+          { id:98, name:"", x:92.77, y:299.12, type:"road" },
+          { id:99, name:"", x:371.95, y:300.88, type:"road" },
+          { id:100, name:"", x:210.71, y:301.33, type:"road" },
+          { id:101, name:"", x:303.92, y:307.07, type:"road" },
+          { id:102, name:"", x:411.26, y:307.07, type:"road" },
+          { id:103, name:"", x:387.85, y:313.25, type:"road" },
+          { id:104, name:"", x:465.6, y:313.25, type:"road" },
+          { id:105, name:"", x:508.89, y:315.02, type:"road" },
+          { id:106, name:"", x:102.93, y:316.79, type:"road" },
+          { id:107, name:"唐古拉山脉", x:210.71, y:325.18, type:"city" },
+          { id:108, name:"", x:403.31, y:325.63, type:"road" },
+          { id:109, name:"", x:231.47, y:326.07, type:"road" },
+          { id:110, name:"", x:252.24, y:326.95, type:"road" },
+          { id:111, name:"", x:273, y:327.39, type:"road" },
+          { id:112, name:"巴颜喀拉山脉", x:293.76, y:328.28, type:"city" },
+          { id:113, name:"", x:423.19, y:328.72, type:"road" },
+          { id:114, name:"", x:313.64, y:331.37, type:"road" },
+          { id:115, name:"", x:450.58, y:331.81, type:"road" },
+          { id:116, name:"", x:188.63, y:332.25, type:"road" },
+          { id:117, name:"", x:112.64, y:334.46, type:"road" },
+          { id:118, name:"", x:333.96, y:334.46, type:"road" },
+          { id:119, name:"", x:515.52, y:334.46, type:"road" },
+          { id:120, name:"", x:354.28, y:337.56, type:"road" },
+          { id:121, name:"", x:419.22, y:337.56, type:"road" },
+          { id:122, name:"", x:166.54, y:338.88, type:"road" },
+          { id:123, name:"", x:374.6, y:340.65, type:"road" },
+          { id:124, name:"", x:216.45, y:342.86, type:"road" },
+          { id:125, name:"", x:394.92, y:343.74, type:"road" },
+          { id:126, name:"", x:144.89, y:345.51, type:"road" },
+          { id:127, name:"", x:299.06, y:346.39, type:"road" },
+          { id:128, name:"", x:415.24, y:346.83, type:"road" },
+          { id:129, name:"秦岭与大巴山脉", x:435.12, y:349.93, type:"city" },
+          { id:130, name:"冈底斯山脉", x:122.81, y:352.14, type:"city" },
+          { id:131, name:"", x:522.14, y:353.46, type:"road" },
+          { id:132, name:"", x:454.11, y:354.34, type:"road" },
+          { id:133, name:"", x:415.24, y:358.32, type:"road" },
+          { id:134, name:"", x:472.67, y:359.2, type:"road" },
+          { id:135, name:"", x:222.2, y:360.53, type:"road" },
+          { id:136, name:"", x:491.22, y:363.62, type:"road" },
+          { id:137, name:"", x:304.36, y:364.51, type:"road" },
+          { id:138, name:"", x:395.36, y:366.72, type:"road" },
+          { id:139, name:"", x:509.77, y:368.04, type:"road" },
+          { id:140, name:"", x:445.28, y:369.81, type:"road" },
+          { id:141, name:"大别山", x:528.33, y:372.9, type:"city" },
+          { id:142, name:"", x:130.76, y:375.55, type:"road" },
+          { id:143, name:"", x:375.48, y:375.55, type:"road" },
+          { id:144, name:"念青唐古拉山脉", x:227.94, y:378.2, type:"city" },
+          { id:145, name:"", x:310.1, y:382.62, type:"road" },
+          { id:146, name:"", x:205.85, y:383.51, type:"road" },
+          { id:147, name:"", x:249.59, y:383.95, type:"road" },
+          { id:148, name:"", x:355.16, y:383.95, type:"road" },
+          { id:149, name:"", x:539.81, y:387.92, type:"road" },
+          { id:150, name:"", x:183.32, y:388.81, type:"road" },
+          { id:151, name:"", x:455.44, y:389.25, type:"road" },
+          { id:152, name:"", x:271.67, y:389.69, type:"road" },
+          { id:153, name:"", x:521.7, y:391.9, type:"road" },
+          { id:154, name:"", x:335.28, y:392.34, type:"road" },
+          { id:155, name:"", x:161.24, y:393.67, type:"road" },
+          { id:156, name:"", x:293.32, y:395.43, type:"road" },
+          { id:157, name:"喜马拉雅山脉", x:138.71, y:398.97, type:"city" },
+          { id:158, name:"横断山脉", x:315.41, y:401.18, type:"city" },
+          { id:159, name:"", x:550.86, y:402.95, type:"road" },
+          { id:160, name:"", x:335.28, y:408.69, type:"road" },
+          { id:161, name:"", x:465.6, y:409.13, type:"road" },
+          { id:162, name:"", x:515.07, y:410.9, type:"road" },
+          { id:163, name:"", x:355.16, y:416.2, type:"road" },
+          { id:164, name:"武夷山脉", x:561.9, y:418.41, type:"city" },
+          { id:165, name:"", x:320.71, y:420.18, type:"road" },
+          { id:166, name:"", x:375.48, y:423.71, type:"road" },
+          { id:167, name:"", x:475.32, y:429.01, type:"road" },
+          { id:168, name:"", x:508.89, y:430.34, type:"road" },
+          { id:169, name:"", x:545.55, y:430.78, type:"road" },
+          { id:170, name:"", x:395.36, y:431.22, type:"road" },
+          { id:171, name:"", x:577.8, y:436.52, type:"road" },
+          { id:172, name:"", x:415.24, y:438.73, type:"road" },
+          { id:173, name:"", x:326.01, y:439.18, type:"road" },
+          { id:174, name:"", x:528.77, y:443.59, type:"road" },
+          { id:175, name:"", x:435.56, y:446.24, type:"road" },
+          { id:176, name:"", x:485.48, y:448.9, type:"road" },
+          { id:177, name:"", x:502.26, y:449.34, type:"road" },
+          { id:178, name:"", x:455.44, y:453.76, type:"road" },
+          { id:179, name:"", x:593.71, y:454.64, type:"road" },
+          { id:180, name:"", x:511.98, y:455.96, type:"road" },
+          { id:181, name:"", x:331.31, y:458.17, type:"road" },
+          { id:182, name:"", x:475.32, y:461.27, type:"road" },
+          { id:183, name:"南岭", x:495.64, y:468.78, type:"city" },
+          { id:184, name:"", x:518.17, y:469.22, type:"road" },
+          { id:185, name:"", x:541.14, y:470.1, type:"road" },
+          { id:186, name:"", x:563.67, y:470.99, type:"road" },
+          { id:187, name:"", x:586.64, y:471.87, type:"road" },
+          { id:188, name:"台湾山脉", x:609.17, y:472.31, type:"city" },
+          { id:189, name:"", x:473.55, y:472.75, type:"road" },
+          { id:190, name:"", x:451.46, y:476.29, type:"road" },
+          { id:191, name:"", x:336.17, y:477.17, type:"road" },
+          { id:192, name:"", x:429.38, y:480.27, type:"road" },
+          { id:193, name:"", x:590.61, y:483.36, type:"road" },
+          { id:194, name:"", x:407.73, y:484.24, type:"road" },
+          { id:195, name:"", x:488.13, y:486.89, type:"road" },
+          { id:196, name:"", x:385.64, y:488.22, type:"road" },
+          { id:197, name:"", x:363.56, y:492.19, type:"road" },
+          { id:198, name:"", x:571.62, y:494.4, type:"road" },
+          { id:199, name:"哀牢山与无量山", x:341.47, y:495.73, type:"city" },
+          { id:200, name:"", x:480.62, y:505.01, type:"road" },
+          { id:201, name:"", x:553.06, y:505.01, type:"road" },
+          { id:202, name:"", x:361.35, y:506.33, type:"road" },
+          { id:203, name:"", x:534.07, y:516.05, type:"road" },
+          { id:204, name:"", x:380.78, y:516.94, type:"road" },
+          { id:205, name:"", x:473.55, y:523.12, type:"road" },
+          { id:206, name:"", x:515.07, y:526.66, type:"road" },
+          { id:207, name:"", x:400.22, y:527.54, type:"road" },
+          { id:208, name:"", x:496.52, y:537.7, type:"road" },
+          { id:209, name:"", x:419.66, y:538.14, type:"road" },
+          { id:210, name:"", x:466.04, y:541.24, type:"road" },
+          { id:211, name:"", x:477.53, y:548.31, type:"road" },
+          { id:212, name:"", x:439.09, y:548.75, type:"road" },
+          { id:213, name:"五指山", x:458.53, y:559.35, type:"city" },
+        ];
+
+        const edges = [
+          [0,1],[0,3],[1,2],[2,5],[3,9],[4,6],[4,8],[5,7],[6,10],[7,11],[7,13],[8,14],[9,17],[10,12],[11,15],[12,16],[13,22],[14,20],[15,18],[16,19],[17,25],[18,25],[19,21],[19,27],[19,28],[20,30],[21,23],[22,34],[23,24],[24,26],[25,31],[26,29],[27,36],[28,37],[29,30],[30,32],[30,39],[30,41],[31,33],[32,35],[33,40],[34,49],[35,38],[36,45],[37,47],[38,42],[39,48],[40,44],[41,53],[42,43],[43,46],[44,49],[45,56],[46,50],[47,58],[48,59],[49,51],[49,61],[50,55],[51,52],[52,54],[53,63],[54,55],[55,57],[55,62],[55,66],[56,65],[57,60],[58,68],[59,68],[60,64],[61,76],[62,79],[63,83],[64,67],[65,82],[66,84],[67,74],[68,69],[68,70],[68,87],[69,71],[70,73],[71,72],[72,75],[73,77],[74,83],[75,78],[76,86],[77,81],[78,80],[79,86],[80,82],[81,83],[82,90],[83,85],[83,93],[84,94],[85,95],[86,88],[86,96],[86,97],[87,100],[88,89],[89,91],[90,98],[91,92],[92,94],[93,101],[94,102],[95,99],[96,104],[97,105],[98,106],[99,103],[100,107],[101,112],[102,113],[103,108],[104,115],[105,119],[106,117],[107,109],[107,116],[107,124],[108,121],[109,110],[110,111],[111,112],[112,114],[112,127],[113,129],[114,118],[115,129],[116,122],[117,130],[118,120],[119,131],[120,123],[121,129],[122,126],[123,125],[124,135],[125,128],[126,130],[127,137],[128,129],[129,132],[129,133],[129,140],[130,142],[131,141],[132,134],[133,138],[134,136],[135,144],[136,139],[137,145],[138,143],[139,141],[140,151],[141,149],[141,153],[142,157],[143,148],[144,146],[144,147],[145,158],[146,150],[147,152],[148,154],[149,159],[150,155],[151,161],[152,156],[153,162],[154,158],[155,157],[156,158],[158,160],[158,165],[159,164],[160,163],[161,167],[162,168],[163,166],[164,169],[164,171],[165,173],[166,170],[167,176],[168,177],[169,174],[170,172],[171,179],[172,175],[173,181],[174,180],[175,178],[176,183],[177,183],[178,182],[179,188],[180,183],[181,191],[182,183],[183,184],[183,189],[183,195],[184,185],[185,186],[186,187],[187,188],[188,193],[189,190],[190,192],[191,199],[192,194],[193,198],[194,196],[195,200],[196,197],[197,199],[198,201],[199,202],[200,205],[201,203],[202,204],[203,206],[204,207],[205,210],[206,208],[207,209],[208,211],[209,212],[210,213],[211,213],[212,213]
+        ];
+
+        const TOTAL_NODES = nodes.length;
+        const adj = Array(TOTAL_NODES).fill().map(() => []);
+        edges.forEach(([a,b]) => { adj[a].push(b); adj[b].push(a); });
+        const cityIds = nodes.map((n,i) => n.type === "city" ? i : -1).filter(i => i !== -1);
+        const TOTAL_CITIES = cityIds.length;
+
+        // ==================== 路径预缓存 ====================
+        let distMatrix = [];
+        function buildDistMatrix() {
+          const matrix = Array.from({ length: TOTAL_NODES }, () => Array(TOTAL_NODES).fill(Infinity));
+          for (let i = 0; i < TOTAL_NODES; i++) {
+            matrix[i][i] = 0;
+            for (const j of adj[i]) matrix[i][j] = 1;
+          }
+          for (let k = 0; k < TOTAL_NODES; k++) {
+            for (let i = 0; i < TOTAL_NODES; i++) {
+              if (matrix[i][k] === Infinity) continue;
+              for (let j = 0; j < TOTAL_NODES; j++) {
+                if (matrix[k][j] === Infinity) continue;
+                if (matrix[i][k] + matrix[k][j] < matrix[i][j]) matrix[i][j] = matrix[i][k] + matrix[k][j];
+              }
+            }
+          }
+          distMatrix = matrix;
+        }
+
+        function shortestSteps(a, b) {
+          if (a < 0 || b < 0 || a >= TOTAL_NODES || b >= TOTAL_NODES) return Infinity;
+          return distMatrix[a][b];
+        }
+
+        function getReachableNodes(start, maxSteps) {
+          const reachable = new Set();
+          for (let i = 0; i < TOTAL_NODES; i++) if (shortestSteps(start, i) <= maxSteps) reachable.add(i);
+          return Array.from(reachable);
+        }
+
+        function findShortestPath(start, end) {
+          if (start === end) return [start];
+          const path = [start];
+          let cur = start;
+          while (cur !== end) {
+            const dist = shortestSteps(cur, end);
+            if (dist === Infinity) return [start];
+            let found = false;
+            for (const nb of adj[cur]) {
+              if (shortestSteps(nb, end) === dist - 1) { path.push(nb); cur = nb; found = true; break; }
+            }
+            if (!found) break;
+          }
+          return path;
+        }
+        //题库
+        const questionBank = [
+{ question: "我国地势第一、二级阶梯的分界山脉不包括（ ）", options: ["昆仑山", "祁连山", "太行山", "横断山"], answer: 2 },
+{ question: "我国南北方气候、地理分界线的山脉是（ ）", options: ["阴山", "秦岭", "南岭", "大巴山"], answer: 1 },
+{ question: "分隔江西省与福建省的界山是（ ）", options: ["雪峰山", "武夷山", "巫山", "太行山"], answer: 1 },
+{ question: "太行山脉东西两侧地形区分别是（ ）", options: ["华北平原、黄土高原", "东北平原、内蒙古高原", "长江中下游平原、四川盆地", "山东丘陵、云贵高原"], answer: 0 },
+{ question: "下列属于南北走向的山脉是（ ）", options: ["秦岭", "横断山脉", "大兴安岭", "天山"], answer: 1 },
+{ question: "天山山脉北侧和南侧的盆地分别是（ ）", options: ["塔里木、准噶尔", "准噶尔、塔里木", "柴达木、四川", "吐鲁番、塔里木"], answer: 1 },
+{ question: "巫山是哪两个地形区的分界线（ ）", options: ["黄土高原、华北平原", "四川盆地、长江中下游平原", "云贵高原、东南丘陵", "内蒙古高原、东北平原"], answer: 1 },
+{ question: "下列山脉不属于东北—西南走向的是（ ）", options: ["大兴安岭", "雪峰山", "阴山", "台湾山脉"], answer: 2 },
+{ question: "喜马拉雅山脉北侧的地形区是（ ）", options: ["云贵高原", "青藏高原", "黄土高原", "帕米尔高原"], answer: 1 },
+{ question: "属于西北—东南走向的山脉是（ ）", options: ["阿尔泰山", "太行山", "南岭", "贺兰山"], answer: 0 },
+{ question: "下列既是阶梯分界线、又是东北—西南走向的是（ ）", options: ["昆仑山", "祁连山", "巫山", "秦岭"], answer: 2 },
+{ question: "东北平原与内蒙古高原的分界山脉是（ ）", options: ["小兴安岭", "大兴安岭", "长白山", "阴山"], answer: 1 },
+{ question: "南岭的主要走向是（ ）", options: ["南北", "东西", "东北—西南", "西北—东南"], answer: 1 },
+{ question: "黄土高原与华北平原的界山是（ ）", options: ["吕梁山", "太行山", "华山", "秦岭"], answer: 1 },
+{ question: "祁连山脉的走向是（ ）", options: ["东西", "南北", "西北—东南", "东北—西南"], answer: 2 },
+{ question: "下列属于我国二、三级阶梯分界线的是（ ）", options: ["昆仑山", "横断山", "雪峰山", "祁连山"], answer: 2 },
+{ question: "贺兰山的山脉走向为（ ）", options: ["东西", "南北", "东北—西南", "西北—东南"], answer: 1 },
+{ question: "四川盆地东部分界山脉是（ ）", options: ["大巴山", "巫山", "武陵山", "雪峰山"], answer: 1 },
+{ question: "全部属于东西走向山脉的一组是（ ）", options: ["天山、阴山、秦岭", "大兴安岭、太行山、巫山", "横断山、贺兰山", "阿尔泰山、祁连山"], answer: 0 },
+{ question: "台湾山脉的走向是（ ）", options: ["东西", "南北", "东北—西南", "西北—东南"], answer: 2 },
+{ question: "河北省与山西省的天然界山是（ ）", options: ["吕梁山", "太行山", "恒山", "燕山"], answer: 1 },
+{ question: "下列山脉不属于阶梯分界线的是（ ）", options: ["巫山", "秦岭", "昆仑山", "大兴安岭"], answer: 1 },
+{ question: "云贵高原与东南丘陵的分界山脉是（ ）", options: ["雪峰山", "南岭", "武夷山", "巫山"], answer: 0 },
+{ question: "阴山山脉南北两侧地形区依次是（ ）", options: ["黄土高原、华北平原", "内蒙古高原、黄土高原", "塔里木盆地、青藏高原", "四川盆地、云贵高原"], answer: 1 },
+{ question: "下列山脉中走向与众不同的是（ ）", options: ["大兴安岭", "长白山", "武夷山", "横断山"], answer: 3 },
+{ question: "重庆与湖北的界山是（ ）", options: ["大巴山", "巫山", "武陵山", "秦岭"], answer: 1 },
+{ question: "我国唯一弧形山脉是（ ）", options: ["天山", "喜马拉雅山", "台湾山脉", "祁连山"], answer: 1 },
+{ question: "我国地形的基本骨架由什么构成（ ）", options: ["高原", "山脉", "盆地", "平原"], answer: 1 },
+{ question: "下列山脉中，位于新疆中部、分隔南北疆的是（ ）", options: ["阿尔泰山", "天山", "昆仑山", "祁连山"], answer: 1 },
+{ question: "大巴山脉南北两侧分别是（ ）", options: ["四川盆地、黄土高原", "华北平原、黄土高原", "云贵高原、四川盆地", "塔里木盆地、准噶尔盆地"], answer: 0 },
+{ question: "小兴安岭的主要走向是（ ）", options: ["西北—东南", "东北—西南", "东西", "南北"], answer: 0 },
+{ question: "长白山脉的走向为（ ）", options: ["东北—西南", "西北—东南", "东西", "南北"], answer: 0 },
+{ question: "下列山脉中，位于我国最东部的是（ ）", options: ["武夷山", "台湾山脉", "雪峰山", "太行山"], answer: 1 },
+{ question: "阿尔金山脉分隔的地形区是（ ）", options: ["塔里木盆地、柴达木盆地", "准噶尔、塔里木", "青藏高原、四川盆地", "黄土高原、内蒙古高原"], answer: 0 },
+{ question: "下列山脉为季风区与非季风区分界线的是（ ）", options: ["秦岭", "阴山", "武夷山", "南岭"], answer: 1 },
+{ question: "不属于季风分界线山脉的是（ ）", options: ["大兴安岭", "贺兰山", "太行山", "阴山"], answer: 2 },
+{ question: "黄土高原南部的界山是（ ）", options: ["阴山", "秦岭", "吕梁山", "太行山"], answer: 1 },
+{ question: "下列山脉中海拔最高的是（ ）", options: ["昆仑山", "秦岭", "太行山", "武夷山"], answer: 0 },
+{ question: "被称为“中华龙脉”、南北方分界的山脉是（ ）", options: ["天山", "秦岭", "南岭", "阴山"], answer: 1 },
+{ question: "湖南省与江西省的界山是（ ）", options: ["雪峰山", "罗霄山", "武夷山", "南岭"], answer: 1 },
+{ question: "广东省与湖南省的界山是（ ）", options: ["武夷山", "南岭", "雪峰山", "巫山"], answer: 1 },
+{ question: "下列山脉全部属于二三级阶梯分界的是（ ）", options: ["大兴安岭、太行山、巫山、雪峰山", "昆仑山、祁连山、横断山", "天山、阴山、秦岭", "阿尔泰山、贺兰山"], answer: 0 },
+{ question: "横断山脉分隔的两大高原是（ ）", options: ["青藏高原、内蒙古高原", "青藏高原、云贵高原", "黄土高原、云贵高原", "青藏高原、黄土高原"], answer: 1 },
+{ question: "祁连山南侧的地形区是（ ）", options: ["塔里木盆地", "柴达木盆地", "青藏高原", "内蒙古高原"], answer: 2 },
+{ question: "祁连山北侧的地形区是（ ）", options: ["河西走廊、内蒙古高原", "黄土高原", "塔里木盆地", "四川盆地"], answer: 0 },
+{ question: "下列山脉中，垂直差异最显著的是（ ）", options: ["喜马拉雅山", "阴山", "南岭", "太行山"], answer: 0 },
+{ question: "既跨地势一二阶梯，又跨多个省区的山脉是（ ）", options: ["秦岭", "昆仑山", "太行山", "巫山"], answer: 1 },
+{ question: "下列山脉中，没有穿过省级行政区界线的是（ ）", options: ["秦岭", "南岭", "天山", "太行山"], answer: 2 },
+{ question: "巫山不能分隔的是（ ）", options: ["重庆、湖北", "四川盆地、长江中下游平原", "第二、三级阶梯", "季风区、非季风区"], answer: 3 },
+{ question: "雪峰山主要位于哪两个省区交界（ ）", options: ["湖南、贵州", "江西、福建", "湖北、重庆", "广东、广西"], answer: 0 },
+{ question: "东西走向山脉中，位置最靠南的是（ ）", options: ["天山", "阴山", "秦岭", "南岭"], answer: 3 },
+{ question: "东北—西南走向最西列山脉是（ ）", options: ["大兴安岭—太行山—巫山—雪峰山", "长白山—武夷山", "台湾山脉", "小兴安岭"], answer: 0 },
+{ question: "下列山脉属于内流区与外流区分界的是（ ）", options: ["秦岭", "阴山", "武夷山", "南岭"], answer: 1 },
+{ question: "四川盆地北部屏障山脉是（ ）", options: ["秦岭、大巴山", "巫山", "雪峰山", "南岭"], answer: 0 },
+{ question: "对我国冬季风阻挡最明显的东西走向山脉是（ ）", options: ["秦岭", "天山", "阴山", "南岭"], answer: 0 },
+{ question: "关于我国山脉说法正确的是（ ）", options: ["所有山脉都是东西走向", "山脉构成地形骨架", "山脉全部位于阶梯分界", "山脉不划分省区边界"], answer: 1 }
+];
+
+        // --- 题库管理 ---
+        let remainingQuestions = [];
+
+        function resetQuestions() {
+          remainingQuestions = [...questionBank];
+        }
+
+        function removeQuestion(question) {
+          const index = remainingQuestions.indexOf(question);
+          if (index !== -1) remainingQuestions.splice(index, 1);
+        }
+
+        function getRandomQuestion() {
+          if (remainingQuestions.length === 0) resetQuestions();
+          const index = Math.floor(Math.random() * remainingQuestions.length);
+          return remainingQuestions[index];
+        }
+
+        // --- AI专用完全随机抽题（不影响剩余题库） ---
+        function getRandomQuestionForAI() {
+          return questionBank[Math.floor(Math.random() * questionBank.length)];
+        }
+
+        const rewardPool = [
+          { type: 'ap', value: 3, label: '行动点数 +3' },
+          { type: 'reduce', value: 3, label: '使一名玩家行动点数 -3' },
+          { type: 'reroll', label: '再摇一次骰子增加行动点数' },
+          { type: 'disableQuiz', label: '使一名玩家下回合不能触发答题' },
+          { type: 'resetQuiz', label: '本回合可再次答题' },
+          { type: 'swap', label: '与一名玩家交换位置' },
+          { type: 'teleport', label: '消耗所有行动点数，传送到一个已打卡点' },
+          { type: 'addTwoTargets', label: '增加两个未打卡点' }
+        ];
+        function getRandomRewards(count = 3) {
+          const shuffled = [...rewardPool].sort(() => Math.random() - 0.5);
+          return shuffled.slice(0, count);
+        }
+
+        const GAME_WIDTH=800, GAME_HEIGHT=600;
+        const CELL_RADIUS=3, CITY_RADIUS=6;
+
+        const staticCanvas = document.createElement("canvas");
+        staticCanvas.width = GAME_WIDTH; staticCanvas.height = GAME_HEIGHT;
+        const staticCtx = staticCanvas.getContext("2d");
+        function drawStaticCache() {
+          staticCtx.clearRect(0,0,GAME_WIDTH,GAME_HEIGHT);
+          // 连线已彻底移除
+          nodes.forEach(node => {
+            if (node.type==="city") {
+              staticCtx.beginPath(); staticCtx.arc(node.x,node.y,CITY_RADIUS,0,Math.PI*2);
+              staticCtx.strokeStyle="#e67e22"; staticCtx.lineWidth=2.5; staticCtx.stroke();
+            } else {
+              staticCtx.beginPath(); staticCtx.arc(node.x,node.y,CELL_RADIUS,0,Math.PI*2);
+              staticCtx.strokeStyle="#c9b896"; staticCtx.lineWidth=1.5; staticCtx.stroke();
+            }
+          });
+        }
+
+        let players = [];
+        const COLORS = ["#e74c3c","#3498db","#2ecc71"];
+        const GLOW_COLORS = ["#ff6b6b","#5dade2","#7dcea0"];
+        const NAMES = ["你","电脑1","电脑2"];
+        const isAI = [false, true, true];
+        let currentPlayerIndex = 0;
+        let isRolling=false, isMoving=false, gameOver=false;
+        let firstRollResolve=null;
+        let waitingForPlayerRoll=false;
+        let waitingForPlayerMove=false;
+        let reachableNodes = [];
+        let floatingTexts = [];
+        let modalActive = false;
+        let selectingTargetPlayer = false;
+        let targetPlayerResolve = null;
+        let selectingCity = false;
+        let cityResolve = null;
+
+        let needsRedraw = true;
+        let rafRunning = false;
+
+        function requestRedraw() {
+          needsRedraw = true;
+          if (!rafRunning) { rafRunning = true; requestAnimationFrame(renderLoop); }
+        }
+        function stopRafIfIdle() {
+          if (!needsRedraw && floatingTexts.length === 0) { rafRunning = false; }
+          else if (!rafRunning) { rafRunning = true; requestAnimationFrame(renderLoop); }
+        }
+
+        function addFloatingText(text,x,y,duration=2000) {
+          floatingTexts.push({text,x,y,timer:duration});
+          requestRedraw();
+        }
+        function updateFloatingTexts(deltaMs) {
+          let changed = false;
+          for(let i=floatingTexts.length-1;i>=0;i--) {
+            floatingTexts[i].timer -= deltaMs;
+            if(floatingTexts[i].timer<=0) { floatingTexts.splice(i,1); changed = true; }
+          }
+          if (changed || floatingTexts.length > 0) requestRedraw();
+        }
+
+        function sampleRandom(arr,n) {
+          const s=[...arr];
+          for(let i=s.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [s[i],s[j]]=[s[j],s[i]]; }
+          return s.slice(0,Math.min(n,arr.length));
+        }
+
+        function drawNextTargets(player) {
+          const remaining = player.remainingPool.filter(c => !player.completed.includes(c));
+          if(remaining.length===0) { player.targets=[]; return; }
+          player.targets = sampleRandom(remaining, Math.min(3,remaining.length));
+        }
+
+        function initPlayers() {
+          players = NAMES.map((name,i) => ({
+            index:i, name, color:COLORS[i], glowColor:GLOW_COLORS[i],
+            currentNode: cityIds[Math.floor(Math.random()*cityIds.length)],
+            completed:[], targets:[], remainingPool:[...cityIds],
+            actionPoints:0, hasAnsweredThisTurn:false,
+            nextTurnPenalty: 0, disableQuizNextTurn: false, quizDisabledThisTurn: false
+          }));
+          players.forEach(p => { p.completed=[]; p.remainingPool=[...cityIds]; drawNextTargets(p); });
+          currentPlayerIndex=0; isRolling=false; isMoving=false; gameOver=false;
+          firstRollResolve=null; waitingForPlayerRoll=false; waitingForPlayerMove=false;
+          reachableNodes=[]; floatingTexts=[];
+          modalActive=false; selectingTargetPlayer=false; selectingCity=false;
+          modalOverlay.classList.add("hidden");
+          requestRedraw();
+          updateUI();
+          hideDice();
+          updateDiceButtonState();
+        }
+
+        function getCurrentPlayer() { return players[currentPlayerIndex]; }
+        function isCurrentAI() { return isAI[currentPlayerIndex]; }
+
+        function aiChooseNode(player, reachable) {
+          const undone = player.targets.filter(t => !player.completed.includes(t));
+          const targetInReach = reachable.filter(n => undone.includes(n) && n!==player.currentNode);
+          if(targetInReach.length>0) {
+            let best=targetInReach[0], bestDist=shortestSteps(player.currentNode,best);
+            for(const n of targetInReach) { const d=shortestSteps(player.currentNode,n); if(d<bestDist){bestDist=d;best=n;} }
+            return best;
+          }
+          let bestNode=reachable[0], bestDist=Infinity;
+          for(const node of reachable) {
+            if(node===player.currentNode) continue;
+            for(const t of undone) { const d=shortestSteps(node,t); if(d<bestDist){bestDist=d;bestNode=node;} }
+          }
+          return bestNode || reachable[0];
+        }
+
+        function aiChooseSwapTarget(player) {
+          const undone = player.targets.filter(t => !player.completed.includes(t));
+          const others = players.filter(p => p.index !== player.index);
+          if (others.length === 0) return null;
+          if (undone.length === 0) return others[Math.floor(Math.random() * others.length)];
+          let bestPlayer = others[0];
+          let bestMinDist = Infinity;
+          for (const other of others) {
+            let minDist = Infinity;
+            for (const target of undone) { const d = shortestSteps(other.currentNode, target); if (d < minDist) minDist = d; }
+            if (minDist < bestMinDist) { bestMinDist = minDist; bestPlayer = other; }
+          }
+          return bestPlayer;
+        }
+
+        function aiChooseTeleportCity(player) {
+          const completed = player.completed.filter(id => id !== player.currentNode && nodes[id].type === 'city');
+          if (completed.length === 0) return null;
+          const undone = player.targets.filter(t => !player.completed.includes(t));
+          if (undone.length === 0) return completed[0];
+          let bestCity = completed[0];
+          let bestDist = Infinity;
+          for (const city of completed) {
+            let minDist = Infinity;
+            for (const target of undone) { const d = shortestSteps(city, target); if (d < minDist) minDist = d; }
+            if (minDist < bestDist) { bestDist = minDist; bestCity = city; }
+          }
+          return bestCity;
+        }
+
+        function aiEvaluateReward(reward, player) {
+          const playerIdx = player.index;
+          const currentAP = player.actionPoints;
+          const targets = player.targets.filter(t => !player.completed.includes(t));
+          const totalCities = TOTAL_CITIES;
+          const others = players.filter(p => p.index !== playerIdx);
+
+          switch (reward.type) {
+            case 'ap': return 60 + Math.max(0, 40 - currentAP * 4);
+            case 'reduce': {
+              if (others.length === 0) return 0;
+              const maxDone = Math.max(...others.map(o => o.completed.length));
+              return 50 + Math.round((maxDone / totalCities) * 30);
+            }
+            case 'reroll': return 50 + Math.max(0, 30 - currentAP * 3);
+            case 'disableQuiz': {
+              if (others.length === 0) return 0;
+              const maxDone = Math.max(...others.map(o => o.completed.length));
+              return 45 + Math.round((maxDone / totalCities) * 25);
+            }
+            case 'resetQuiz': {
+              const reachable = getReachableNodes(player.currentNode, currentAP);
+              return reachable.some(id => id !== player.currentNode && nodes[id].type === 'city') ? 70 : 0;
+            }
+            case 'swap': {
+              if (others.length === 0) return 0;
+              let bestDistOther = Infinity, bestDistSelf = Infinity;
+              let found = false;
+              for (const target of targets) {
+                const selfDist = shortestSteps(player.currentNode, target);
+                for (const other of others) {
+                  const otherDist = shortestSteps(other.currentNode, target);
+                  if (otherDist < selfDist) { found = true; if (otherDist < bestDistOther) { bestDistOther = otherDist; bestDistSelf = selfDist; } }
+                }
+              }
+              if (!found) return 0;
+              const ratio = bestDistSelf > 0 ? (1 - bestDistOther / bestDistSelf) : 0;
+              return 40 + Math.max(0, Math.round(ratio * 30));
+            }
+            case 'teleport': {
+              const completed = player.completed.filter(id => id !== player.currentNode && nodes[id].type === 'city');
+              if (completed.length === 0) return 0;
+              let bestCityDist = Infinity, bestSelfDist = Infinity;
+              let found = false;
+              for (const target of targets) {
+                const selfDist = shortestSteps(player.currentNode, target);
+                for (const city of completed) {
+                  const cityDist = shortestSteps(city, target);
+                  if (cityDist < selfDist) { found = true; if (cityDist < bestCityDist) { bestCityDist = cityDist; bestSelfDist = selfDist; } }
+                }
+              }
+              if (!found) return 0;
+              const ratio = bestSelfDist > 0 ? (1 - bestCityDist / bestSelfDist) : 0;
+              return 55 + Math.max(0, Math.round(ratio * 25));
+            }
+            case 'addTwoTargets': {
+              const hiddenCities = player.remainingPool.filter(c => !player.completed.includes(c) && !player.targets.includes(c));
+              if (hiddenCities.length === 0) return 0;
+              const currentTargetCount = targets.length;
+              const bonus = currentTargetCount <= 2 ? Math.round((2 - currentTargetCount + 1) * 7.5) : 0;
+              return 35 + Math.min(15, bonus);
+            }
+            default: return 50;
+          }
+        }
+
+        function aiChooseBestReward(rewards, player) {
+          const scored = rewards.map(r => ({ reward: r, score: aiEvaluateReward(r, player) }));
+          const usable = scored.filter(s => s.score > 0);
+          if (usable.length === 0) return rewards[Math.floor(Math.random() * rewards.length)];
+          const withJitter = usable.map(s => ({ ...s, final: s.score + (Math.random() * 20 - 10) }));
+          withJitter.sort((a,b) => b.final - a.final);
+          return withJitter[0].reward;
+        }
+
+        function updateUI() {
+          players.forEach((p,i) => {
+            const total=TOTAL_CITIES, done=p.completed.length;
+            const undone = p.targets.filter(t => !p.completed.includes(t));
+            let str;
+            if(done>=total) str="全部完成";
+            else if(undone.length===0) str="抽取中…";
+            else str=undone.map(t => nodes[t].name).join("、");
+            scoreEls[i].textContent = `🎯${str} (${done}/${total})`;
+            let apText = p.actionPoints>0 ? `⚡${p.actionPoints}` : "";
+            if (p.nextTurnPenalty > 0) apText += ` (下回合-${p.nextTurnPenalty})`;
+            if (p.disableQuizNextTurn) apText += " 🚫答题";
+            apEls[i].textContent = apText;
+          });
+          indicators.forEach((el,i) => el.classList.toggle("active", i===currentPlayerIndex && !gameOver));
+          updateDiceButtonState();
+        }
+
+        function updateDiceButtonState() {
+          const canRoll = (waitingForPlayerRoll && !isCurrentAI() && !modalActive && !selectingTargetPlayer && !selectingCity) || firstRollResolve!==null;
+          if(canRoll && !gameOver) { btnRollDice.classList.remove("disabled"); btnRollDice.disabled = false; }
+          else { btnRollDice.classList.add("disabled"); btnRollDice.disabled = true; }
+        }
+
+        function getBoardOffset() {
+          const br=boardWrapper.getBoundingClientRect(), gr=gameContainer.getBoundingClientRect();
+          return { left:br.left-gr.left, top:br.top-gr.top };
+        }
+        function showDiceAt(nodeIndex) {
+          const pos=nodes[nodeIndex], off=getBoardOffset();
+          diceContainer.style.left=off.left+pos.x-21+"px"; diceContainer.style.top=off.top+pos.y-55+"px";
+          diceContainer.style.display="block";
+        }
+        function hideDice() { diceContainer.style.display="none"; }
+
+        function drawBoard() {
+          gameCtx.clearRect(0,0,GAME_WIDTH,GAME_HEIGHT);
+          gameCtx.drawImage(staticCanvas,0,0);
+          const player = getCurrentPlayer();
+          if(waitingForPlayerMove && !isCurrentAI() && player.actionPoints>0 && !selectingTargetPlayer && !selectingCity) {
+            reachableNodes.forEach(idx => {
+              const pos=nodes[idx];
+              const isTarget = player && player.targets.includes(idx) && !player.completed.includes(idx);
+              const radius = nodes[idx].type==="city"?CITY_RADIUS:CELL_RADIUS;
+              gameCtx.beginPath(); gameCtx.arc(pos.x,pos.y,radius,0,Math.PI*2);
+              gameCtx.strokeStyle=isTarget?"#27ae60":"#2980b9"; gameCtx.lineWidth=3; gameCtx.stroke();
+            });
+          }
+          if (selectingCity && player) {
+            const completedCities = player.completed.filter(id => nodes[id].type === "city");
+            completedCities.forEach(id => {
+              const pos = nodes[id];
+              gameCtx.beginPath(); gameCtx.arc(pos.x, pos.y, CITY_RADIUS+2, 0, Math.PI*2);
+              gameCtx.strokeStyle = "#f1c40f"; gameCtx.lineWidth = 3; gameCtx.stroke();
+            });
+          }
+          drawAllPieces();
+          floatingTexts.forEach(ft => {
+            gameCtx.save(); gameCtx.font="bold 14px 'PingFang SC','Microsoft YaHei',sans-serif";
+            gameCtx.fillStyle="#fff"; gameCtx.shadowColor="rgba(0,0,0,0.8)"; gameCtx.shadowBlur=4;
+            gameCtx.textAlign="center"; gameCtx.fillText(ft.text, ft.x, ft.y-14);
+            gameCtx.restore();
+          });
+          if (selectingTargetPlayer) {
+            players.forEach((p, i) => {
+              if (i === currentPlayerIndex) return;
+              const pos = getPlayerScreenPos(p);
+              gameCtx.beginPath(); gameCtx.arc(pos.x, pos.y, 14, 0, Math.PI*2);
+              gameCtx.strokeStyle = "#fff"; gameCtx.lineWidth = 3; gameCtx.stroke();
+              gameCtx.fillStyle = "rgba(255,255,255,0.2)"; gameCtx.fill();
+            });
+          }
+        }
+
+        function getPlayerScreenPos(player) {
+          const node = nodes[player.currentNode];
+          const occ = {};
+          players.forEach((p, i) => { if (!occ[p.currentNode]) occ[p.currentNode] = []; occ[p.currentNode].push(i); });
+          const pis = occ[player.currentNode];
+          const idx = pis.indexOf(player.index);
+          let ox = 0, oy = 0;
+          if (pis.length === 2) { ox = idx===0?-4:4; oy = idx===0?-3:3; }
+          if (pis.length === 3) {
+            if (idx === 0) { ox = -5; oy = -4; } else if (idx === 1) { ox = 5; oy = -4; } else { ox = 0; oy = 5; }
+          }
+          return { x: node.x + ox, y: node.y + oy };
+        }
+
+        function drawAllPieces() {
+          const occ={};
+          players.forEach((p,i) => { if(!occ[p.currentNode]) occ[p.currentNode]=[]; occ[p.currentNode].push(i); });
+          for(const [nodeIdx,pis] of Object.entries(occ)) {
+            const pos=nodes[+nodeIdx];
+            pis.forEach((pi,idx) => {
+              let ox=0,oy=0;
+              if(pis.length===2) { ox=idx===0?-4:4; oy=idx===0?-3:3; }
+              if(pis.length===3) { if(idx===0){ox=-5;oy=-4;} else if(idx===1){ox=5;oy=-4;} else{ox=0;oy=5;} }
+              drawPiece(pos.x+ox,pos.y+oy,players[pi], pi===currentPlayerIndex && !gameOver);
+            });
+          }
+        }
+
+        function drawPiece(x,y,player,active) {
+          gameCtx.fillStyle = "rgba(0,0,0,0.3)";
+          gameCtx.beginPath(); gameCtx.arc(x+1, y+1.5, 6, 0, Math.PI*2); gameCtx.fill();
+          const grad = gameCtx.createRadialGradient(x-2, y-3, 2, x, y, 8);
+          grad.addColorStop(0,"#fff"); grad.addColorStop(0.3, player.color); grad.addColorStop(1,"#1a1a1a");
+          gameCtx.fillStyle = grad;
+          gameCtx.beginPath(); gameCtx.arc(x, y, 6, 0, Math.PI*2); gameCtx.fill();
+          gameCtx.fillStyle = "rgba(255,255,255,0.5)";
+          gameCtx.beginPath(); gameCtx.arc(x-1, y-2, 1.5, 0, Math.PI*2); gameCtx.fill();
+          gameCtx.strokeStyle = "rgba(255,255,255,0.7)"; gameCtx.lineWidth = 0.1; gameCtx.stroke();
+        }
+
+        const rotateMap = {
+          1:{rotateX:"0deg",rotateY:"0deg"}, 2:{rotateX:"90deg",rotateY:"0deg"},
+          3:{rotateX:"180deg",rotateY:"90deg"}, 4:{rotateX:"0deg",rotateY:"90deg"},
+          5:{rotateX:"270deg",rotateY:"0deg"}, 6:{rotateX:"0deg",rotateY:"180deg"}
+        };
+        function rollDiceAnimation(finalOverride) {
+          return new Promise(resolve => {
+            isRolling=true; waitingForPlayerRoll=false; waitingForPlayerMove=false; updateDiceButtonState();
+            dice3d.style.transition="none"; dice3d.style.transform="rotateX(0deg) rotateY(0deg)"; dice3d.offsetHeight;
+            const finalValue = finalOverride || Math.floor(Math.random()*6)+1;
+            const obj=rotateMap[finalValue];
+            let transform="", transform2="";
+            for(const key in obj) { transform+=`${key}(${obj[key]}) `; transform2+=`${key}(${parseInt(obj[key])+360*2}deg) `; }
+            dice3d.style.transition="transform 2s cubic-bezier(0.25,0.1,0.25,1)"; dice3d.style.transform=transform2;
+            setTimeout(() => { dice3d.style.transition="none"; dice3d.style.transform=transform; isRolling=false; resolve(finalValue); },2100);
+          });
+        }
+        const sleep = ms => new Promise(r => setTimeout(r,ms));
+
+        async function performReroll(player) {
+          showDiceAt(player.currentNode);
+          const diceValue = await rollDiceAnimation();
+          await sleep(100); hideDice();
+          player.actionPoints += diceValue;
+          updateUI();
+        }
+
+        function checkCompletion(player) {
+          let changed = false;
+          const nodeId = player.currentNode;
+          if(player.targets.includes(nodeId) && !player.completed.includes(nodeId)) { player.completed.push(nodeId); changed=true; }
+          if(changed) {
+            const done = player.targets.every(t => player.completed.includes(t));
+            if(done && player.completed.length < TOTAL_CITIES) { drawNextTargets(player); }
+            updateUI();
+          }
+          return changed;
+        }
+
+        function movePlayerToNode(player, targetNodeId) {
+          const steps = shortestSteps(player.currentNode, targetNodeId);
+          if(steps===Infinity || steps > player.actionPoints) return false;
+          player.currentNode = targetNodeId;
+          player.actionPoints -= steps;
+          return true;
+        }
+
+        function canMoveFurther(player) {
+          if(player.actionPoints <= 0) return false;
+          const reachable = getReachableNodes(player.currentNode, player.actionPoints);
+          return reachable.length > 1;
+        }
+
+        function showHumanQuestion(question) {
+          return new Promise(resolve => {
+            const q = question;
+            modalBox.innerHTML = `<h3>📝 回答问题</h3><div class="question-text">${q.question}</div><div class="options-grid">${q.options.map((opt,idx) => `<button class="option-btn" data-idx="${idx}">${opt}</button>`).join("")}</div>`;
+            modalOverlay.classList.remove("hidden"); modalActive = true; updateDiceButtonState();
+            const buttons = modalBox.querySelectorAll(".option-btn");
+            buttons.forEach(btn => {
+              btn.addEventListener("click", (e) => {
+                const idx = parseInt(e.currentTarget.dataset.idx);
+                buttons.forEach(b => b.disabled = true);
+                const correctIdx = q.answer;
+                buttons[correctIdx].style.background = "#2ecc71"; buttons[correctIdx].style.borderColor = "#2ecc71"; buttons[correctIdx].style.color = "#fff";
+                if (idx !== correctIdx) {
+                  e.currentTarget.style.background = "#e74c3c"; e.currentTarget.style.borderColor = "#e74c3c"; e.currentTarget.style.color = "#fff";
+                  setTimeout(() => { modalOverlay.classList.add("hidden"); modalActive = false; updateDiceButtonState(); resolve(false); }, 1000);
+                } else {
+                  modalOverlay.classList.add("hidden"); modalActive = false; updateDiceButtonState(); resolve(true);
+                }
+              });
+            });
+          });
+        }
+
+        function showHumanReward(rewards) {
+          return new Promise(resolve => {
+            modalBox.innerHTML = `<h3>🎁 回答正确！选择一个奖励</h3><div class="reward-grid">${rewards.map((reward, idx) => `<div class="reward-card" data-idx="${idx}">${reward.label}</div>`).join("")}</div>`;
+            modalOverlay.classList.remove("hidden"); modalActive = true; updateDiceButtonState();
+            modalBox.querySelectorAll(".reward-card").forEach(card => {
+              card.addEventListener("click", (e) => {
+                const idx = parseInt(e.currentTarget.dataset.idx);
+                modalOverlay.classList.add("hidden"); modalActive = false; updateDiceButtonState();
+                resolve(rewards[idx]);
+              });
+            });
+          });
+        }
+
+        function showVictoryModal(player) {
+          return new Promise(resolve => {
+            modalBox.innerHTML = `
+              <h2 style="font-size:1.5em;margin-bottom:12px;">🏆 ${player.name} 获胜！</h2>
+              <p style="margin-bottom:20px;">你完成了全部城市打卡，征服了山河！</p>
+              <button class="action-btn" style="width:auto;padding:10px 30px;">🔄 再来一局</button>
+            `;
+            modalOverlay.classList.remove('hidden');
+            modalActive = true;
+            updateDiceButtonState();
+
+            const btn = modalBox.querySelector('.action-btn');
+            btn.addEventListener('click', () => {
+              modalOverlay.classList.add('hidden');
+              modalActive = false;
+              resolve(); // 告诉游戏“胜利展示完毕”，可以继续后续流程（其实直接重置）
+            });
+          });
+        }
+
+        function selectTargetPlayerForHuman() {
+          return new Promise(resolve => {
+            selectingTargetPlayer = true; selectingCity = false;
+            targetPlayerResolve = resolve; cityResolve = null;
+            requestRedraw(); updateDiceButtonState();
+          });
+        }
+
+        function selectCityForHuman() {
+          return new Promise(resolve => {
+            selectingCity = true; selectingTargetPlayer = false;
+            cityResolve = resolve; targetPlayerResolve = null;
+            requestRedraw(); updateDiceButtonState();
+          });
+        }
+
+        function aiSelectTargetPlayer(currentPlayer) {
+          const others = players.filter(p => p.index !== currentPlayer.index);
+          return others[Math.floor(Math.random() * others.length)];
+        }
+
+        function addTwoTargets(player) {
+          const hiddenCities = player.remainingPool.filter(c => !player.completed.includes(c) && !player.targets.includes(c));
+          if (hiddenCities.length === 0) { return; }
+          const toAdd = sampleRandom(hiddenCities, Math.min(2, hiddenCities.length));
+          player.targets.push(...toAdd);
+          updateUI();
+        }
+
+        async function handleHumanCityQuiz(player) {
+          if (player.quizDisabledThisTurn) return;
+          if(player.hasAnsweredThisTurn) return;
+          if(nodes[player.currentNode].type !== "city") return;
+          player.hasAnsweredThisTurn = true;
+          const q = getRandomQuestion();
+          const correct = await showHumanQuestion(q);
+          if(!correct) { await sleep(400); return; }
+          // 答对从题库移除
+          removeQuestion(q);
+
+          const rewards = getRandomRewards(3);
+          const chosenReward = await showHumanReward(rewards);
+          
+          if (chosenReward.type === 'ap') { player.actionPoints += chosenReward.value; }
+          else if (chosenReward.type === 'reduce') {
+            const target = await selectTargetPlayerForHuman(); target.nextTurnPenalty += chosenReward.value;
+            addFloatingText(`下回合-${chosenReward.value}`, getPlayerScreenPos(target).x, getPlayerScreenPos(target).y, 2000);
+          }
+          else if (chosenReward.type === 'reroll') { await performReroll(player); }
+          else if (chosenReward.type === 'disableQuiz') {
+            const target = await selectTargetPlayerForHuman(); target.disableQuizNextTurn = true;
+            addFloatingText(`下回合禁止答题`, getPlayerScreenPos(target).x, getPlayerScreenPos(target).y, 2000);
+          }
+          else if (chosenReward.type === 'resetQuiz') { player.hasAnsweredThisTurn = false; }
+          else if (chosenReward.type === 'swap') {
+            const target = await selectTargetPlayerForHuman();
+            const tempNode = player.currentNode; player.currentNode = target.currentNode; target.currentNode = tempNode;
+            player.actionPoints = 0;
+            addFloatingText("交换位置", getPlayerScreenPos(player).x, getPlayerScreenPos(player).y, 2000);
+          }
+          else if (chosenReward.type === 'teleport') {
+            if (player.completed.length === 0) { await sleep(800); return; }
+            const cityId = await selectCityForHuman();
+            if (cityId !== null) { player.currentNode = cityId; player.actionPoints = 0; addFloatingText("传送！", nodes[cityId].x, nodes[cityId].y, 2000); }
+          }
+          else if (chosenReward.type === 'addTwoTargets') { addTwoTargets(player); }
+          updateUI(); await sleep(600);
+        }
+
+        async function handleAICityQuiz(player) {
+          if (player.quizDisabledThisTurn) return;
+          if(player.hasAnsweredThisTurn) return;
+          if(nodes[player.currentNode].type !== "city") return;
+          player.hasAnsweredThisTurn = true;
+          const pos = nodes[player.currentNode];
+          const correct = Math.random() < 0.9;//电脑答题正确率
+          if(!correct) { addFloatingText("回答错误", pos.x, pos.y); await sleep(1000); return; }
+          addFloatingText("回答正确", pos.x, pos.y); await sleep(600);
+          const rewards = getRandomRewards(3);
+          const chosenReward = aiChooseBestReward(rewards, player);
+          
+          if (chosenReward.type === 'ap') { player.actionPoints += chosenReward.value; addFloatingText(`行动点数 +${chosenReward.value}`, pos.x, pos.y+20); }
+          else if (chosenReward.type === 'reduce') { const target = aiSelectTargetPlayer(player); target.nextTurnPenalty += chosenReward.value; addFloatingText(`使 ${target.name} 下回合-${chosenReward.value}`, pos.x, pos.y+20); }
+          else if (chosenReward.type === 'reroll') { await performReroll(player); }
+          else if (chosenReward.type === 'disableQuiz') { const target = aiSelectTargetPlayer(player); target.disableQuizNextTurn = true; addFloatingText(`使 ${target.name} 下回合禁止答题`, pos.x, pos.y+20); }
+          else if (chosenReward.type === 'resetQuiz') { player.hasAnsweredThisTurn = false; addFloatingText(`本回合可再次答题`, pos.x, pos.y+20); }
+          else if (chosenReward.type === 'swap') {
+            const target = aiChooseSwapTarget(player);
+            if (target) { const tempNode = player.currentNode; player.currentNode = target.currentNode; target.currentNode = tempNode; player.actionPoints = 0; addFloatingText(`与 ${target.name} 交换位置`, pos.x, pos.y+20); }
+          }
+          else if (chosenReward.type === 'teleport') {
+            const cityId = aiChooseTeleportCity(player);
+            if (cityId !== null) { player.currentNode = cityId; player.actionPoints = 0; addFloatingText(`传送到 ${nodes[cityId].name}`, pos.x, pos.y+20); }
+          }
+          else if (chosenReward.type === 'addTwoTargets') { addTwoTargets(player); addFloatingText(`未打卡点+2`, pos.x, pos.y+20); }
+          updateUI(); await sleep(1000);
+        }
+
+        async function triggerQuizIfNeeded(player) {
+          if (player.quizDisabledThisTurn) return;
+          if(player.hasAnsweredThisTurn) return;
+          if(nodes[player.currentNode].type !== "city") return;
+          if(isAI[player.index]) await handleAICityQuiz(player);
+          else await handleHumanCityQuiz(player);
+        }
+
+        async function afterMove(player) {
+          checkCompletion(player);
+          if(player.completed.length >= TOTAL_CITIES) { gameOver = true; hideDice(); updateUI(); updateDiceButtonState(); await showVictoryModal(player); resetGame(); return true; }
+          await triggerQuizIfNeeded(player);
+          return gameOver;
+        }
+
+        async function continueMove() {
+          const player = getCurrentPlayer();
+          if(gameOver) return;
+          if(!canMoveFurther(player)) { await sleep(1000); finishTurn(); return; }
+          reachableNodes = getReachableNodes(player.currentNode, player.actionPoints);
+          if(reachableNodes.length <= 1) { await sleep(1000); finishTurn(); return; }
+          if(!isCurrentAI()) {
+            waitingForPlayerMove = true; waitingForPlayerRoll = false; updateDiceButtonState();
+            requestRedraw();
+          } else { await aiContinueMove(); }
+        }
+
+        async function aiContinueMove() {
+          const player = getCurrentPlayer();
+          while (canMoveFurther(player) && !gameOver) {
+            if (player.completed.length >= TOTAL_CITIES) break;
+            reachableNodes = getReachableNodes(player.currentNode, player.actionPoints);
+            if (reachableNodes.length <= 1) break;
+            const target = aiChooseNode(player, reachableNodes);
+            const path = findShortestPath(player.currentNode, target);
+            if (path.length < 2) break;
+            let moved = false;
+            for (let i = 1; i < path.length; i++) {
+              if (player.actionPoints <= 0) break;
+              const nextNode = path[i];
+              player.currentNode = nextNode; player.actionPoints -= 1; updateUI();
+              requestRedraw();
+              await sleep(500);
+              const ended = await afterMove(player);
+              if (ended || gameOver) return;
+              if (player.completed.length >= TOTAL_CITIES) break;
+              moved = true;
+            }
+            if (gameOver || player.completed.length >= TOTAL_CITIES) break;
+            if (!moved) break;
+          }
+          if (!gameOver) finishTurn();
+        }
+
+        async function handleTurn() {
+          if(gameOver) return;
+          const player = getCurrentPlayer();
+          if (player.disableQuizNextTurn) { player.quizDisabledThisTurn = true; player.disableQuizNextTurn = false; } else { player.quizDisabledThisTurn = false; }
+          player.hasAnsweredThisTurn = false;
+          reachableNodes = []; waitingForPlayerMove = false;
+          if(!isCurrentAI()) {
+            waitingForPlayerRoll = true; updateDiceButtonState(); showDiceAt(player.currentNode);
+            requestRedraw();
+          } else {
+            waitingForPlayerRoll = false; updateDiceButtonState(); showDiceAt(player.currentNode);
+            await sleep(600); await handleRollDice();
+          }
+        }
+
+        async function handleRollDice() {
+          if(isRolling || isMoving || gameOver) return;
+          const player = getCurrentPlayer();
+          waitingForPlayerRoll = false; waitingForPlayerMove = false; updateDiceButtonState();
+          const diceValue = await rollDiceAnimation(); await sleep(100); hideDice();
+          let actualGain = diceValue;
+          if (player.nextTurnPenalty > 0) { actualGain = Math.max(0, diceValue - player.nextTurnPenalty); player.nextTurnPenalty = 0; }
+          player.actionPoints += actualGain;
+          updateUI(); await sleep(400); await continueMove();
+        }
+
+        function getCanvasClickCoordinates(e) {
+          const rect = gameCanvas.getBoundingClientRect();
+          const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+          const clientY = e.touches?.[0]?.clientY ?? e.clientY;
+          let mouseX, mouseY;
+          if (window.isRotated) {
+            const relX = clientX - rect.left;
+            const relY = clientY - rect.top;
+            const normX = relX / rect.width;
+            const normY = relY / rect.height;
+            mouseX = normY * GAME_WIDTH;
+            mouseY = (1 - normX) * GAME_HEIGHT;
+          } else {
+            const scaleX = GAME_WIDTH / rect.width;
+            const scaleY = GAME_HEIGHT / rect.height;
+            mouseX = (clientX - rect.left) * scaleX;
+            mouseY = (clientY - rect.top) * scaleY;
+          }
+          return { mouseX, mouseY };
+        }
+
+        async function onCanvasInteraction(e) {
+          e.preventDefault();
+          const { mouseX, mouseY } = getCanvasClickCoordinates(e);
+
+          if (selectingCity) {
+            const player = getCurrentPlayer();
+            const completedCities = player.completed.filter(id => nodes[id].type === "city");
+            let closestCity = null; let minDist = 15;
+            for (const id of completedCities) { const node = nodes[id]; const dx = node.x - mouseX, dy = node.y - mouseY; const dist = Math.sqrt(dx*dx+dy*dy); if (dist < minDist) { minDist = dist; closestCity = id; } }
+            if (closestCity !== null) { selectingCity = false; if (cityResolve) { cityResolve(closestCity); cityResolve = null; } updateDiceButtonState(); requestRedraw(); }
+            return;
+          }
+
+          if (selectingTargetPlayer) {
+            const currentPlayer = getCurrentPlayer();
+            let closestPlayer = null; let minDist = 20;
+            for (const p of players) { if (p.index === currentPlayer.index) continue; const pos = getPlayerScreenPos(p); const dx = pos.x - mouseX; const dy = pos.y - mouseY; const dist = Math.sqrt(dx*dx+dy*dy); if (dist < minDist) { minDist = dist; closestPlayer = p; } }
+            if (closestPlayer) { selectingTargetPlayer = false; if (targetPlayerResolve) { targetPlayerResolve(closestPlayer); targetPlayerResolve = null; } updateDiceButtonState(); requestRedraw(); }
+            return;
+          }
+
+          if(gameOver || isMoving || isRolling || modalActive) return;
+          if(!waitingForPlayerMove || isCurrentAI()) return;
+          if(reachableNodes.length <= 1 || getCurrentPlayer().actionPoints <= 0) return;
+
+          let clickedNode = null;
+          for(const id of reachableNodes) {
+            const node = nodes[id];
+            const dx = node.x - mouseX, dy = node.y - mouseY;
+            const radius = nodes[id].type==="city"?CITY_RADIUS:CELL_RADIUS;
+            if(Math.sqrt(dx*dx+dy*dy) <= radius+8) { clickedNode=id; break; }
+          }
+          if(clickedNode===null || clickedNode===getCurrentPlayer().currentNode) return;
+          const player = getCurrentPlayer();
+          if(!movePlayerToNode(player, clickedNode)) return;
+          waitingForPlayerMove = false;
+          updateUI(); requestRedraw();
+          await sleep(300);
+          const ended = await afterMove(player);
+          if(ended) return;
+          await continueMove();
+        }
+
+        function finishTurn() {
+          reachableNodes = []; waitingForPlayerMove = false; waitingForPlayerRoll = false; updateDiceButtonState();
+          const player = getCurrentPlayer();
+          if(player.completed.length >= TOTAL_CITIES) { gameOver=true; hideDice(); updateUI(); return; }
+          switchPlayer();
+        }
+
+        function switchPlayer() { if(gameOver) return; currentPlayerIndex = (currentPlayerIndex + 1) % 3; updateUI(); handleTurn(); }
+
+        async function decideFirstPlayer() {
+  const off = getBoardOffset();
+  diceContainer.style.left = off.left + 400 - 21 + "px";
+  diceContainer.style.top = off.top + 300 - 55 + "px";
+  diceContainer.style.display = "block";
+
+  // --- 玩家0（你）掷骰子 ---
+  currentPlayerIndex = 0;
+  updateUI();
+  firstRollResolve = null;
+  const rollP = new Promise(r => { firstRollResolve = r; });
+  updateDiceButtonState();
+  const pRoll = await rollP;
+  await sleep(800);
+  hideDice();
+
+  // --- 玩家1（电脑1）掷骰子 ---
+  currentPlayerIndex = 1;
+  updateUI();
+  diceContainer.style.display = "block";
+  const a1Roll = await rollDiceAnimation();
+  await sleep(800);
+  hideDice();
+
+  // --- 玩家2（电脑2）掷骰子 ---
+  currentPlayerIndex = 2;
+  updateUI();
+  diceContainer.style.display = "block";
+  const a2Roll = await rollDiceAnimation();
+  await sleep(800);
+  hideDice();
+
+  const rolls = [
+    { i: 0, v: pRoll },
+    { i: 1, v: a1Roll },
+    { i: 2, v: a2Roll },
+  ];
+  rolls.sort((a, b) => b.v - a.v);
+  if (rolls[0].v === rolls[1].v) {
+    await sleep(800);
+    return decideFirstPlayer();
+  }
+  currentPlayerIndex = rolls[0].i;
+  updateUI();
+  await sleep(800);
+  handleTurn();
+}
+
+        function resetGame() {
+          if(isRolling||isMoving) return;
+          resetQuestions(); // 重置题库
+          modalOverlay.classList.add("hidden"); modalActive=false;
+          selectingTargetPlayer = false; selectingCity = false;
+          targetPlayerResolve = null; cityResolve = null;
+          initPlayers(); decideFirstPlayer();
+        }
+
+        // ------------------ 移动端强制横屏自适应（弹窗移入容器） ------------------
+        function adaptForMobile() {
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const isPortrait = vw < vh;
+          const isNarrow = vw < 900;
+
+          if (isNarrow && isPortrait) {
+            window.isRotated = true;
+            const containerWidth = 1060 + 32;
+            const containerHeight = 600 + 32 + 12;
+            const scaleX = vh / containerWidth;
+            const scaleY = vw / containerHeight;
+            const scale = Math.min(scaleX, scaleY, 1);
+            gameContainer.style.transform = `rotate(90deg) scale(${scale})`;
+            gameContainer.style.transformOrigin = 'center center';
+            gameContainer.style.position = 'absolute';
+            gameContainer.style.left = '50%';
+            gameContainer.style.top = '50%';
+            gameContainer.style.margin = '0';
+            gameContainer.style.translate = '-50% -50%';
+
+            if (modalOverlay.parentNode !== gameContainer) {
+              gameContainer.appendChild(modalOverlay);
+            }
+            modalOverlay.style.position = 'absolute';
+            modalOverlay.style.width = '100%';
+            modalOverlay.style.height = '100%';
+            modalOverlay.style.top = '0';
+            modalOverlay.style.left = '0';
+            modalBox.style.maxWidth = '340px';
+            modalBox.style.fontSize = '0.85em';
+            modalBox.style.padding = '14px 18px';
+          } else {
+            window.isRotated = false;
+            gameContainer.style.transform = '';
+            gameContainer.style.transformOrigin = '';
+            gameContainer.style.position = '';
+            gameContainer.style.left = '';
+            gameContainer.style.top = '';
+            gameContainer.style.margin = '0 auto';
+            gameContainer.style.translate = '';
+
+            if (modalOverlay.parentNode !== document.body) {
+              document.body.appendChild(modalOverlay);
+            }
+            modalOverlay.style.position = 'fixed';
+            modalOverlay.style.width = '100%';
+            modalOverlay.style.height = '100%';
+            modalOverlay.style.top = '0';
+            modalOverlay.style.left = '0';
+            modalBox.style.maxWidth = '';
+            modalBox.style.fontSize = '';
+            modalBox.style.padding = '';
+          }
+        }
+
+        window.addEventListener('resize', adaptForMobile);
+        window.addEventListener('orientationchange', () => setTimeout(adaptForMobile, 100));
+        adaptForMobile();
+
+        gameCanvas.addEventListener("touchstart", onCanvasInteraction, { passive: false });
+        gameCanvas.addEventListener("touchend", onCanvasInteraction, { passive: false });
+        gameCanvas.addEventListener("click", onCanvasInteraction);
+        diceContainer.addEventListener("click", async () => {
+          if(isRolling||isMoving||gameOver||modalActive||selectingTargetPlayer||selectingCity) return;
+          if(btnRollDice.classList.contains("disabled")) return;
+          if(firstRollResolve) { const val=await rollDiceAnimation(); await sleep(800); hideDice(); firstRollResolve(val); firstRollResolve=null; updateDiceButtonState(); return; }
+          if(!waitingForPlayerRoll || isCurrentAI()) return;
+          handleRollDice();
+        });
+        btnRollDice.addEventListener("click", () => diceContainer.click());
+        btnReset.addEventListener("click", resetGame);
+        document.addEventListener("keydown", e => { if(e.key===" "){ e.preventDefault(); if(!modalActive && !selectingTargetPlayer && !selectingCity) diceContainer.click(); } });
+
+        let lastTimestamp = 0;
+        function renderLoop(timestamp) {
+          if (!lastTimestamp) lastTimestamp = timestamp;
+          const delta = timestamp - lastTimestamp;
+          lastTimestamp = timestamp;
+          updateFloatingTexts(delta);
+          if (needsRedraw) { drawBoard(); needsRedraw = false; }
+          stopRafIfIdle();
+          if (rafRunning) requestAnimationFrame(renderLoop);
+        }
+
+        buildDistMatrix();
+        drawStaticCache();
+        loadBackgroundImage();
+        resetQuestions(); // 首次加载初始化题库
+        initPlayers();
+        requestAnimationFrame(renderLoop);
+        decideFirstPlayer();
+      })();
+    </script>
+  </body>
+</html>
