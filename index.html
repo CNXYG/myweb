@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>🏔️山河之旅</title>
+    <title>🏔️山河旅行记</title>
     <style>
       :root {
         --bg: #1a1a2e;
@@ -120,8 +120,9 @@
           <!-- 已移除 statusText 元素 -->
         </div>
         <button id="btnRollDice" class="action-btn">🎲 掷骰子 <span class="key-hint">[空格]</span></button>
-        <div style="font-size:0.7em;color:#aaa;text-align:center">完成所有城市打卡获胜</div>
+        <div style="font-size:0.7em;color:#aaa;text-align:center">完成所有山脉打卡则获胜</div>
         <button class="btn-reset" id="btnReset">🔄 重新开始</button>
+        <button class="btn-reset" id="btnSwitchBg" style="margin-top:4px;">🗺️ 切换地图</button>
       </div>
     </div>
     <script>
@@ -137,6 +138,7 @@
         const gameContainer = document.getElementById("gameContainer");
         const btnRollDice = document.getElementById("btnRollDice");
         const btnReset = document.getElementById("btnReset");
+        const btnSwitchBg = document.getElementById("btnSwitchBg");
         // const statusText 已删除
         const indicators = [0,1,2].map(i => document.getElementById(`p${i}Indicator`));
         const scoreEls = [0,1,2].map(i => document.getElementById(`p${i}Score`));
@@ -144,19 +146,31 @@
         const modalOverlay = document.getElementById("modalOverlay");
         const modalBox = document.getElementById("modalBox");
 
-        const backgroundImagePath = "/myweb/bg.png";
+        // ==================== 背景图切换 ====================
+        const bgImages = ["/myweb/bg1.png", "/myweb/bg2.png"]; // 替换为你的实际文件名
+        let currentBgIndex = 0;
+        let backgroundImagePath = bgImages[currentBgIndex];
         let bgLoaded = false;
-        function loadBackgroundImage() {
-          if (backgroundImagePath && backgroundImagePath.trim() !== "") {
+
+        function loadBackgroundImage(path = backgroundImagePath) {
+          if (path && path.trim() !== "") {
             const img = new Image();
-            img.onload = () => { bgCanvas.width = img.width; bgCanvas.height = img.height; bgCtx.drawImage(img,0,0); bgLoaded = true; };
+            img.onload = () => {
+              bgCanvas.width = img.width;
+              bgCanvas.height = img.height;
+              bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+              bgCtx.drawImage(img, 0, 0);
+              bgLoaded = true;
+              drawStaticCache();  // 背景加载后重绘节点
+              requestRedraw();    // 刷新前景
+            };
             img.onerror = () => { bgLoaded = false; };
-            img.src = backgroundImagePath;
+            img.src = path;
           }
         }
 
-         // ==================== 地图数据 ====================
-        const nodes = [
+        // ==================== 地图数据 ====================
+       const nodes = [
           { id:0, name:"小兴安岭", x:614.03, y:91.02, type:"city" },
           { id:1, name:"", x:597.68, y:100.74, type:"road" },
           { id:2, name:"", x:581.34, y:110.9, type:"road" },
@@ -429,7 +443,7 @@
           }
           return path;
         }
-        //题库
+       //题库
         const questionBank = [
 { question: "我国地势第一、二级阶梯的分界山脉不包括（ ）", options: ["昆仑山", "祁连山", "太行山", "横断山"], answer: 2 },
 { question: "我国南北方气候、地理分界线的山脉是（ ）", options: ["阴山", "秦岭", "南岭", "大巴山"], answer: 1 },
@@ -470,11 +484,9 @@
 { question: "黄土高原南部的界山是（ ）", options: ["阴山", "秦岭", "吕梁山", "太行山"], answer: 1 },
 { question: "下列山脉中海拔最高的是（ ）", options: ["昆仑山", "秦岭", "太行山", "武夷山"], answer: 0 },
 { question: "被称为“中华龙脉”、南北方分界的山脉是（ ）", options: ["天山", "秦岭", "南岭", "阴山"], answer: 1 },
-{ question: "湖南省与江西省的界山是（ ）", options: ["雪峰山", "罗霄山", "武夷山", "南岭"], answer: 1 },
 { question: "广东省与湖南省的界山是（ ）", options: ["武夷山", "南岭", "雪峰山", "巫山"], answer: 1 },
 { question: "下列山脉全部属于二三级阶梯分界的是（ ）", options: ["大兴安岭、太行山、巫山、雪峰山", "昆仑山、祁连山、横断山", "天山、阴山、秦岭", "阿尔泰山、贺兰山"], answer: 0 },
 { question: "横断山脉分隔的两大高原是（ ）", options: ["青藏高原、内蒙古高原", "青藏高原、云贵高原", "黄土高原、云贵高原", "青藏高原、黄土高原"], answer: 1 },
-{ question: "祁连山南侧的地形区是（ ）", options: ["塔里木盆地", "柴达木盆地", "青藏高原", "内蒙古高原"], answer: 2 },
 { question: "祁连山北侧的地形区是（ ）", options: ["河西走廊、内蒙古高原", "黄土高原", "塔里木盆地", "四川盆地"], answer: 0 },
 { question: "下列山脉中，垂直差异最显著的是（ ）", options: ["喜马拉雅山", "阴山", "南岭", "太行山"], answer: 0 },
 { question: "既跨地势一二阶梯，又跨多个省区的山脉是（ ）", options: ["秦岭", "昆仑山", "太行山", "巫山"], answer: 1 },
@@ -693,7 +705,7 @@
             }
             case 'resetQuiz': {
               const reachable = getReachableNodes(player.currentNode, currentAP);
-              return reachable.some(id => id !== player.currentNode && nodes[id].type === 'city') ? 70 : 0;
+              return reachable.some(id => id !== player.currentNode && nodes[id].type === 'city') ? 60 : 0;
             }
             case 'swap': {
               if (others.length === 0) return 0;
@@ -954,7 +966,7 @@
           return new Promise(resolve => {
             modalBox.innerHTML = `
               <h2 style="font-size:1.5em;margin-bottom:12px;">🏆 ${player.name} 获胜！</h2>
-              <p style="margin-bottom:20px;">你完成了全部城市打卡，征服了山河！</p>
+              <p style="margin-bottom:20px;">你完成了全部山脉的打卡，征服了崇山峻岭！</p>
               <button class="action-btn" style="width:auto;padding:10px 30px;">🔄 再来一局</button>
             `;
             modalOverlay.classList.remove('hidden');
@@ -1277,6 +1289,13 @@
           targetPlayerResolve = null; cityResolve = null;
           initPlayers(); decideFirstPlayer();
         }
+
+        // 切换背景图按钮
+        btnSwitchBg.addEventListener("click", () => {
+          currentBgIndex = (currentBgIndex + 1) % bgImages.length;
+          backgroundImagePath = bgImages[currentBgIndex];
+          loadBackgroundImage(backgroundImagePath);
+        });
 
         // ------------------ 移动端强制横屏自适应（弹窗移入容器） ------------------
         function adaptForMobile() {
